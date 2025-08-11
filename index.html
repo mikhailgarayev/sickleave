@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Absence Request</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-blue-400 font-sans antialiased" style="background-image: url('background.png'); background-size: cover; background-position: right 30%; background-repeat: no-repeat;">
+  <div class="flex items-center justify-center min-h-screen p-6">
+    <div class="bg-white bg-opacity-90 backdrop-blur-md rounded-xl shadow-xl overflow-hidden max-w-4xl w-full grid grid-cols-1 md:grid-cols-2">
+      <!-- Left instructions -->
+      <div class="p-10 bg-white/80 flex flex-col justify-center">
+        <h2 class="text-4xl font-extrabold text-gray-800 mb-6">Before You Submit</h2>
+        <ul class="space-y-4 text-gray-700 text-lg list-disc list-inside">
+          <li>✅ Get approval from your Team Lead.</li>
+          <li>✅ Complete all fields accurately.</li>
+          <li>✅ Personal comments visible only to Team Lead.</li>
+        </ul>
+      </div>
+      <!-- Right form -->
+      <div class="p-10 flex items-center justify-center">
+        <form id="absenceForm" class="w-full space-y-5">
+          <div>
+            <label for="employee" class="block text-gray-700 font-medium mb-1">Your Email</label>
+            <input type="email" id="employee" name="employee" required
+                   class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                   placeholder="you@company.com">
+          </div>
+          <div>
+            <label for="reason" class="block text-gray-700 font-medium mb-1">Reason</label>
+            <select id="reason" name="reason" required
+                    class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
+              <option value="">Select reason</option>
+              <option value="University">University</option>
+              <option value="Feeling bad">Feeling bad</option>
+              <option value="Personal reason">Personal reason</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div id="personalReasonContainer" class="hidden">
+            <label for="personalReason" class="block text-gray-700 font-medium mb-1">Comment</label>
+            <textarea id="personalReason" name="personal_reason" rows="3"
+                      class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                      placeholder="Please specify..."></textarea>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="startDate" class="block text-gray-700 font-medium mb-1">Start Date</label>
+              <input type="date" id="startDate" lang="en-US" required
+                     class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
+            </div>
+            <div>
+              <label for="endDate" class="block text-gray-700 font-medium mb-1">End Date</label>
+              <input type="date" id="endDate" lang="en-US" required
+                     class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
+            </div>
+          </div>
+          <div>
+            <label for="teamLead" class="block text-gray-700 font-medium mb-1">Team Lead</label>
+            <select id="teamLead" name="teamlead" required
+                    class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
+              <option value="mikhail.garayev@wolt.com">Mikhail Garayev</option>
+            </select>
+          </div>
+          <input type="hidden" id="submittedTime" name="submittedtime">
+          <button type="submit"
+                  class="w-full py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-shadow shadow-md">
+            Submit Request
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('absenceForm');
+      const reason = document.getElementById('reason');
+      const personalContainer = document.getElementById('personalReasonContainer');
+      const personalField = document.getElementById('personalReason');
+      const webhookURL = 'https://hooks.slack.com/triggers/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';
+
+      reason.addEventListener('change', () => {
+        if (['Personal reason', 'Other'].includes(reason.value)) {
+          personalContainer.classList.remove('hidden');
+          personalField.required = true;
+        } else {
+          personalContainer.classList.add('hidden');
+          personalField.required = false;
+        }
+      });
+
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const d = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const now = `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear().toString().slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        document.getElementById('submittedTime').value = now;
+
+        const payload = {
+          employee: document.getElementById('employee').value,
+          reason: reason.value,
+          date: document.getElementById('startDate').value + ' to ' + document.getElementById('endDate').value,
+          teamlead: document.getElementById('teamLead').value,
+          personal_reason: personalContainer.classList.contains('hidden') ? '' : personalField.value,
+          submittedtime: now
+        };
+
+        fetch(webhookURL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) })
+          .then(() => { alert('Your absence request has been submitted.'); form.reset(); })
+          .catch(err => { console.error(err); alert('Error submitting request.'); });
+      });
+    });
+  </script>
+</body>
+</html>
