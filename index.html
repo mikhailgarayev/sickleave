@@ -206,7 +206,7 @@
       }
     })();
 
-  document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('absenceForm');
     const reason = document.getElementById('reason');
     const personalContainer = document.getElementById('personalReasonContainer');
@@ -256,30 +256,57 @@
         submittedtime: submitted
       };
 
+      // === 1) Пробуем как application/x-www-form-urlencoded (simple request, без preflight)
+      const bodyUrlEncoded = 'payload=' + encodeURIComponent(JSON.stringify(payload));
       try {
-        const res = await fetch(SLACK_WORKFLOW_URL, {
+        await fetch(SLACK_WORKFLOW_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-          // ВАЖНО: без 'mode:no-cors', иначе Slack не увидит application/json и вернёт 400.
+          mode: 'no-cors', // избегаем CORS-проверок
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+          body: bodyUrlEncoded
         });
-
-        if (!res.ok) {
-          // Прочитать текст ответа, если CORS позволит (иначе будет ошибка — это ок)
-          let text = '';
-          try { text = await res.text(); } catch {}
-          throw new Error(`Slack responded ${res.status}${text ? `: ${text}` : ''}`);
-        }
-
         alert('Your absence request has been submitted.');
         form.reset();
         document.getElementById('shiftsBox').innerHTML =
           '<div class="text-gray-500 text-sm">Start typing your email to see shifts.</div>';
-      } catch (err) {
-        console.error(err);
-        // Частые причины: AdBlock/Privacy-блокер, корпоративная политика CORS, неверный URL триггера
-        alert('Submit failed. Please: 1) disable AdBlock for this page, 2) verify the Workflow *Webhook trigger* URL, 3) try again.');
+        return;
+      } catch (e1) {
+        console.warn('urlencoded send failed, trying fallback…', e1);
       }
+
+      // === 2) Фолбэк: text/plain (ещё один simple request)
+      try {
+        await fetch(SLACK_WORKFLOW_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify(payload)
+        });
+        alert('Your absence request has been submitted.');
+        form.reset();
+        document.getElementById('shiftsBox').innerHTML =
+          '<div class="text-gray-500 text-sm">Start typing your email to see shifts.</div>';
+        return;
+      } catch (e2) {
+        console.warn('text/plain send failed, trying beacon…', e2);
+      }
+
+      // === 3) Последний шанс: sendBeacon (тоже без CORS-диалогов)
+      try {
+        const ok = navigator.sendBeacon(
+          SLACK_WORKFLOW_URL,
+          new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=UTF-8' })
+        );
+        if (ok) {
+          alert('Your absence request has been submitted.');
+          form.reset();
+          document.getElementById('shiftsBox').innerHTML =
+            '<div class="text-gray-500 text-sm">Start typing your email to see shifts.</div>';
+          return;
+        }
+      } catch {}
+
+      alert('Submit failed. If this keeps happening, please disable AdBlock for this page.');
     });
   });
   </script>
