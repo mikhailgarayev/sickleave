@@ -67,20 +67,6 @@
                       placeholder="Please specify..."></textarea>
           </div>
 
-          <!-- Optional date range (оставляем прежнюю логику) -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label for="startDate" class="block text-gray-700 font-medium mb-1">Start Date</label>
-              <input type="text" id="startDate" placeholder="MM/DD/YYYY" required
-                     class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
-            </div>
-            <div>
-              <label for="endDate" class="block text-gray-700 font-medium mb-1">End Date</label>
-              <input type="text" id="endDate" placeholder="MM/DD/YYYY" required
-                     class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white">
-            </div>
-          </div>
-
           <!-- Team Lead -->
           <div>
             <label for="teamLead" class="block text-gray-700 font-medium mb-1">Team Lead</label>
@@ -221,56 +207,67 @@
     })();
 
     // ====== Form logic ======
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('absenceForm');
-      const reason = document.getElementById('reason');
-      const personalContainer = document.getElementById('personalReasonContainer');
-      const personalField = document.getElementById('personalReason');
-      const emailInput = document.getElementById('employee');
+      document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('absenceForm');
+    const reason = document.getElementById('reason');
+    const personalContainer = document.getElementById('personalReasonContainer');
+    const personalField = document.getElementById('personalReason');
+    const emailInput = document.getElementById('employee');
 
-      reason.addEventListener('change', () => {
-        if (['Personal reason', 'Other'].includes(reason.value)) {
-          personalContainer.classList.remove('hidden'); personalField.required = true;
-        } else {
-          personalContainer.classList.add('hidden'); personalField.required = false;
-        }
-      });
-
-      function onEmailChange(){
-        const email = emailInput.value.trim().toLowerCase();
-        renderShifts(email);
+    reason.addEventListener('change', () => {
+      if (['Personal reason', 'Other'].includes(reason.value)) {
+        personalContainer.classList.remove('hidden'); personalField.required = true;
+      } else {
+        personalContainer.classList.add('hidden'); personalField.required = false;
       }
-      emailInput.addEventListener('change', onEmailChange);
-      emailInput.addEventListener('input', onEmailChange);
-
-      form.addEventListener('submit', e => {
-        e.preventDefault();
-
-        const selected = Array.from(document.querySelectorAll('#shiftsBox input[type="checkbox"]:checked'))
-          .map(cb => JSON.parse(decodeURIComponent(cb.value)));
-
-        // Submitted time as DD.MM.YY HH:MM:SS
-        const d = new Date();
-        const pad = n => n.toString().padStart(2,'0');
-        const submitted = `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear().toString().slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-        document.getElementById('submittedTime').value = submitted;
-
-        const payload = {
-          employee: emailInput.value.trim(),
-          reason: reason.value,
-          date: document.getElementById('startDate').value + ' to ' + document.getElementById('endDate').value,
-          teamlead: document.getElementById('teamLead').value,
-          personal_reason: personalContainer.classList.contains('hidden') ? '' : personalField.value,
-          selected_shifts: selected,                     // [{type, start, end, start_raw, end_raw}, ...]
-          selected_shifts_count: selected.length,
-          submittedtime: submitted
-        };
-
-        fetch(SLACK_WORKFLOW_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) })
-          .then(() => { alert('Your absence request has been submitted.'); form.reset(); })
-          .catch(() => { alert('Error submitting request.'); });
-      });
     });
+
+    function onEmailChange(){
+      const email = emailInput.value.trim().toLowerCase();
+      renderShifts(email);
+    }
+    emailInput.addEventListener('change', onEmailChange);
+    emailInput.addEventListener('input', onEmailChange);
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+
+      const selected = Array
+        .from(document.querySelectorAll('#shiftsBox input[type="checkbox"]:checked'))
+        .map(cb => JSON.parse(decodeURIComponent(cb.value)));
+
+      if (!selected.length) {
+        alert('Please select at least one shift.');
+        return;
+      }
+
+      // Submitted time as DD.MM.YY HH:MM:SS
+      const d = new Date();
+      const pad = n => n.toString().padStart(2,'0');
+      const submitted = `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear().toString().slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      document.getElementById('submittedTime').value = submitted;
+
+      // БЕЗ поля date — отправляем выбранные смены
+      const payload = {
+        employee: emailInput.value.trim(),
+        reason: reason.value,
+        teamlead: document.getElementById('teamLead').value,
+        personal_reason: personalContainer.classList.contains('hidden') ? '' : personalField.value,
+        selected_shifts: selected,              // [{type, start, end, start_raw, end_raw}, ...]
+        selected_shifts_count: selected.length,
+        submittedtime: submitted
+      };
+
+      fetch(SLACK_WORKFLOW_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+        .then(() => {
+          alert('Your absence request has been submitted.');
+          form.reset();
+          document.getElementById('shiftsBox').innerHTML =
+            '<div class="text-gray-500 text-sm">Start typing your email to see shifts.</div>';
+        })
+        .catch(() => { alert('Error submitting request.'); });
+    });
+  });
   </script>
 </body>
 </html>
